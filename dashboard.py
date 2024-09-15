@@ -18,7 +18,7 @@ data = pd.read_csv(file_path)
 negeri_options = sorted(data['negeri'].unique())
 
 # Title of the Dashboard
-st.title('Real-Time ADL Prediction Dashboard for Elderly Individuals')
+st.title('Real-Time Activity of Daily Living (ADL) Prediction Dashboard for Older Individuals')
 
 # Sidebar for User Input
 st.sidebar.header('Input Features')
