@@ -25,7 +25,7 @@ model = joblib.load('multi_output_rf_model_negeri_daerah_gender.pkl')
 feature_names = joblib.load('feature_names_negeri_daerah_gender.pkl')
 
 # Title of the Dashboard
-st.title('Real-Time ADL Prediction Dashboard')
+st.title('Real-Time Activity of Daily Living (ADL) Prediction Dashboard')
 
 # Sidebar for User Input
 st.sidebar.header('Input Features')
