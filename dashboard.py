@@ -57,6 +57,12 @@ def user_input_features():
         if key in input_df.columns:
             input_df.at[0, key] = input_data[key]
 
+    # Ensure all columns expected by the model are present
+    input_df = input_df.reindex(columns=feature_names, fill_value=0)
+
+    # Check for missing or unexpected values
+    input_df = input_df.fillna(0)
+
     return input_df, record_count
 
 # Get user input and record count
@@ -65,9 +71,13 @@ input_df, record_count = user_input_features()
 # Display the record count for the selected daerah
 st.metric(label="Total Records for Selected Daerah and Gender", value=f"{record_count} records")
 
-# Predict with the model whenever user input changes
-prediction = model.predict(input_df)
-prediction_proba = model.predict_proba(input_df)
+try:
+    # Predict with the model whenever user input changes
+    prediction = model.predict(input_df)
+    prediction_proba = model.predict_proba(input_df)
+except Exception as e:
+    st.error(f"An error occurred during prediction: {e}")
+    st.stop()
 
 # Prepare data for display
 activities = ['Bath', 'Dress', 'Eating', 'Mobility', 'Toileting']
