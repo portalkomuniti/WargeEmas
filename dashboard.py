@@ -10,32 +10,35 @@ st.set_page_config(layout="wide")
 model = joblib.load('multi_output_rf_model_adl.pkl')
 feature_names = joblib.load('feature_names_adl.pkl')
 
-# Load your dataset to extract unique 'negeri'
+# Load your dataset to extract unique 'state' and 'gender'
 file_path = 'ADLprediction.csv'  # Adjust the path if necessary
 data = pd.read_csv(file_path)
 
-# Extract unique 'negeri' options
-negeri_options = sorted(data['negeri'].unique())
+# Extract unique 'state' options
+state_options = sorted(data['state'].unique())
 
 # Title of the Dashboard
-st.title('Real-Time Activity of Daily Living (ADL) Prediction Dashboard for Older Individuals')
+st.title('Real-Time ADL Prediction Dashboard for Elderly Individuals')
 
 # Sidebar for User Input
 st.sidebar.header('Input Features')
 
 # Function to accept user input
 def user_input_features():
-    # Select negeri
-    negeri = st.sidebar.selectbox('Negeri', negeri_options)
+    # Select state
+    state = st.sidebar.selectbox('State', state_options)
 
-    # Enter additional user inputs like age
-    age = st.sidebar.slider('Age', 60, 100, 70)  # Elderly age range
+    # Filter dataset based on the selected state to get unique gender options
+    gender_options = sorted(data[data['state'] == state]['gender'].unique())
+    
+    # Select gender based on filtered options
+    gender = st.sidebar.selectbox('Gender', gender_options)
 
     # Create an empty DataFrame with all feature names set to 0
     input_df = pd.DataFrame(0, index=[0], columns=feature_names)
 
     # One-hot encode the input features
-    input_data = {'negeri_' + negeri: 1, 'age': age}
+    input_data = {'state_' + state: 1, 'gender_' + gender: 1}
     
     # Update the DataFrame with user input
     for key in input_data.keys():
@@ -48,16 +51,16 @@ def user_input_features():
     # Check for missing or unexpected values
     input_df = input_df.fillna(0)
 
-    return input_df, negeri
+    return input_df, state
 
-# Get user input DataFrame and selected negeri
-input_df, selected_negeri = user_input_features()
+# Get user input DataFrame and the selected state
+input_df, selected_state = user_input_features()
 
-# Correctly calculate the record count for the selected negeri
-record_count = len(data[data['negeri'] == selected_negeri])
+# Correctly calculate the record count for the selected state
+record_count = len(data[data['state'] == selected_state])
 
-# Display the record count for the selected negeri
-st.metric(label="Total Records for Selected Negeri", value=f"{record_count} records")
+# Display the record count for the selected state
+st.metric(label="Total Records for Selected State", value=f"{record_count} records")
 
 # Predict with the model whenever user input changes
 try:
@@ -68,7 +71,7 @@ except Exception as e:
     st.stop()
 
 # Prepare data for display
-activities = ['Bath', 'Dress', 'Eating', 'Mobility', 'Toileting']
+activities = ['Eating', 'Bathing', 'Dressing', 'Toileting', 'Mobility']
 needs_assistance = [prediction_proba[i][0][1] * 100 for i in range(len(activities))]
 
 # Identify the highest and lowest probability
@@ -98,11 +101,10 @@ ax.set_ylabel('Probability of Needs Assistance (%)')
 ax.set_title('Probability of Needs Assistance')
 st.pyplot(fig)
 
-# Arrange the prediction results horizontally
+# Arrange the prediction results horizontally without "Needs Assistance" label
 st.subheader('Detailed Prediction Results')
 cols = st.columns(len(activities))
 for i, activity in enumerate(activities):
-    result = "Needs assistance" if prediction[0][i] else "No assistance needed"
     percentage = round(needs_assistance[i], 2)
     with cols[i]:
-        st.metric(label=activity, value=result, delta=f"{percentage} %")
+        st.metric(label=activity, value=f"{percentage} %")
