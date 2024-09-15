@@ -6,26 +6,19 @@ import matplotlib.pyplot as plt
 # Set the page configuration for a wide layout
 st.set_page_config(layout="wide")
 
-# Load your dataset to extract all unique 'negeri', 'daerah', and 'gender'
+# Load the trained model and feature names
+model = joblib.load('multi_output_rf_model_adl.pkl')
+feature_names = joblib.load('feature_names_adl.pkl')
+
+# Load your dataset to extract unique 'negeri'
 file_path = 'ADLprediction.csv'  # Adjust the path if necessary
 data = pd.read_csv(file_path)
 
-# Calculate the total number of records
-total_records = len(data)
-
-# Create a mapping between 'negeri' and 'daerah'
-negeri_daerah_mapping = data.groupby('negeri')['daerah'].unique().apply(list).to_dict()
-
-# Extract unique 'negeri' and 'gender' options
-negeri_options = sorted(negeri_daerah_mapping.keys())
-gender_options = sorted(data['gender'].unique())
-
-# Load the trained model and feature names
-model = joblib.load('multi_output_rf_model_negeri_daerah_gender.pkl')
-feature_names = joblib.load('feature_names_negeri_daerah_gender.pkl')
+# Extract unique 'negeri' options
+negeri_options = sorted(data['negeri'].unique())
 
 # Title of the Dashboard
-st.title('Activity of Daily Living (ADL) Prediction Dashboard')
+st.title('Real-Time ADL Prediction Dashboard for Elderly Individuals')
 
 # Sidebar for User Input
 st.sidebar.header('Input Features')
@@ -34,25 +27,17 @@ st.sidebar.header('Input Features')
 def user_input_features():
     # Select negeri
     negeri = st.sidebar.selectbox('Negeri', negeri_options)
-    
-    # Dynamically update the daerah options based on the selected negeri
-    daerah_options = negeri_daerah_mapping[negeri]
-    daerah = st.sidebar.selectbox('Daerah', daerah_options)
-    
-    # Select gender
-    gender = st.sidebar.selectbox('Gender', gender_options)
 
-    # Filter data based on the selected daerah
-    selected_data = data[(data['negeri'] == negeri) & (data['daerah'] == daerah) & (data['gender'] == gender)]
-    record_count = len(selected_data)
+    # Enter additional user inputs like age
+    age = st.sidebar.slider('Age', 60, 100, 70)  # Elderly age range
 
-    # One-hot encode the input features
-    input_data = {'negeri_' + negeri: 1, 'daerah_' + daerah: 1, 'gender_' + gender: 1}
-
-    # Create a DataFrame with all feature names set to 0
+    # Create an empty DataFrame with all feature names set to 0
     input_df = pd.DataFrame(0, index=[0], columns=feature_names)
 
-    # Update the DataFrame with the user input
+    # One-hot encode the input features
+    input_data = {'negeri_' + negeri: 1, 'age': age}
+    
+    # Update the DataFrame with user input
     for key in input_data.keys():
         if key in input_df.columns:
             input_df.at[0, key] = input_data[key]
@@ -63,16 +48,19 @@ def user_input_features():
     # Check for missing or unexpected values
     input_df = input_df.fillna(0)
 
-    return input_df, record_count
+    return input_df, negeri
 
-# Get user input and record count
-input_df, record_count = user_input_features()
+# Get user input DataFrame and selected negeri
+input_df, selected_negeri = user_input_features()
 
-# Display the record count for the selected daerah
-st.metric(label="Total Records for Selected Daerah and Gender", value=f"{record_count} records")
+# Correctly calculate the record count for the selected negeri
+record_count = len(data[data['negeri'] == selected_negeri])
 
+# Display the record count for the selected negeri
+st.metric(label="Total Records for Selected Negeri", value=f"{record_count} records")
+
+# Predict with the model whenever user input changes
 try:
-    # Predict with the model whenever user input changes
     prediction = model.predict(input_df)
     prediction_proba = model.predict_proba(input_df)
 except Exception as e:
