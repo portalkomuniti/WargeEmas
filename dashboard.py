@@ -101,30 +101,41 @@ with col_low:
               value=f"{round(needs_assistance[lowest_index], 2)}%",
               delta="Low")
 
-# Display 360-degree gauge charts above the bar chart
+# Display circular gauges above the bar chart
+st.subheader('Probability of Needs Assistance for Each Activity')
 gauge_cols = st.columns(len(activities))
 
 for i, activity in enumerate(activities):
+    # Create circular gauge using Plotly
     gauge = go.Figure(go.Indicator(
         mode="gauge+number",
         value=needs_assistance[i],
-        title={'text': activity},
-        gauge={'axis': {'range': [0, 100], 'dtick': 20},
-               'bar': {'color': "skyblue"},
-               'steps': [
-                   {'range': [0, 50], 'color': 'lightgray'},
-                   {'range': [50, 100], 'color': 'lightgreen'}]
-               }
+        number={'suffix': "%"},
+        gauge={
+            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkgray"},
+            'bar': {'color': "orange"},
+            'bgcolor': "white",
+            'borderwidth': 2,
+            'bordercolor': "gray",
+            'steps': [
+                {'range': [0, 50], 'color': 'lightgray'},
+                {'range': [50, 100], 'color': 'lightgreen'}
+            ],
+            'threshold': {
+                'line': {'color': "red", 'width': 4},
+                'thickness': 0.75,
+                'value': needs_assistance[i]
+            }
+        },
+        title={'text': activity}
     ))
 
     with gauge_cols[i]:
         st.plotly_chart(gauge, use_container_width=True)
 
 # Display the bar chart below the gauges
-st.subheader('Probability of Needs Assistance for Each Activity')
 fig, ax = plt.subplots(figsize=(8, 4))  # Adjust the figure size to fit the screen better
-ax.bar(activities, needs_assistance, color='skyblue')
-ax.set_xlabel('Activities')
-ax.set_ylabel('Probability of Needs Assistance (%)')
+ax.barh(activities, needs_assistance, color='skyblue')
+ax.set_xlabel('Probability of Needs Assistance (%)')
 ax.set_title('Probability of Needs Assistance')
 st.pyplot(fig)
