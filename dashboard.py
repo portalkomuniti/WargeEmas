@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 # Set the page configuration for a wide layout
 st.set_page_config(layout="wide")
@@ -56,11 +57,19 @@ def user_input_features():
 # Get user input DataFrame and the selected state
 input_df, selected_state = user_input_features()
 
-# Correctly calculate the record count for the selected state
-record_count = len(data[data['state'] == selected_state])
+# Calculate the total record count and the record count for the selected state
+total_record_count = len(data)
+state_record_count = len(data[data['state'] == selected_state])
 
-# Display the record count for the selected state
-st.metric(label="Total Records for Selected State", value=f"{record_count} records")
+# Display the record counts side-by-side
+st.subheader('Record Counts')
+col_total, col_selected = st.columns(2)
+
+with col_total:
+    st.metric(label="Total Records", value=f"{total_record_count} records")
+
+with col_selected:
+    st.metric(label="Records for Selected State", value=f"{state_record_count} records")
 
 # Predict with the model whenever user input changes
 try:
@@ -92,7 +101,26 @@ with col_low:
               value=f"{round(needs_assistance[lowest_index], 2)}%",
               delta="Low")
 
-# Display the bar chart below the summary
+# Display 360-degree gauge charts above the bar chart
+gauge_cols = st.columns(len(activities))
+
+for i, activity in enumerate(activities):
+    gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=needs_assistance[i],
+        title={'text': activity},
+        gauge={'axis': {'range': [0, 100], 'dtick': 20},
+               'bar': {'color': "skyblue"},
+               'steps': [
+                   {'range': [0, 50], 'color': 'lightgray'},
+                   {'range': [50, 100], 'color': 'lightgreen'}]
+               }
+    ))
+
+    with gauge_cols[i]:
+        st.plotly_chart(gauge, use_container_width=True)
+
+# Display the bar chart below the gauges
 st.subheader('Probability of Needs Assistance for Each Activity')
 fig, ax = plt.subplots(figsize=(8, 4))  # Adjust the figure size to fit the screen better
 ax.bar(activities, needs_assistance, color='skyblue')
@@ -100,11 +128,3 @@ ax.set_xlabel('Activities')
 ax.set_ylabel('Probability of Needs Assistance (%)')
 ax.set_title('Probability of Needs Assistance')
 st.pyplot(fig)
-
-# Arrange the prediction results horizontally without "Needs Assistance" label
-st.subheader('Detailed Prediction Results')
-cols = st.columns(len(activities))
-for i, activity in enumerate(activities):
-    percentage = round(needs_assistance[i], 2)
-    with cols[i]:
-        st.metric(label=activity, value=f"{percentage} %")
