@@ -19,7 +19,7 @@ data = pd.read_csv(file_path)
 state_options = sorted(data['state'].unique())
 
 # Title of the Dashboard
-st.title('Real-Time Prediction Dashboard: Activity of Daily Living (ADL) for Older Individuals')
+st.title('Real-Time Prediction Dashboard: \n Activity of Daily Living (ADL) for Older Individuals')
 
 # Sidebar for User Input
 st.sidebar.header('Input Features')
