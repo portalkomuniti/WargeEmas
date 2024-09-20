@@ -1,141 +1,66 @@
-import streamlit as st
 import pandas as pd
-import joblib
-import matplotlib.pyplot as plt
-import plotly.graph_objects as go
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import make_classification
+from sklearn.metrics import accuracy_score
+import streamlit as st
 
-# Set the page configuration for a wide layout
-st.set_page_config(layout="wide")
+sheet_id = '1CcszXiJpeVR7T0cj5ZfFxyy6cnu8MHWnhMe1KMqBfA0'
 
-# Load the trained model and feature names
-model = joblib.load('multi_output_rf_model_adl.pkl')
-feature_names = joblib.load('feature_names_adl.pkl')
+df = pd.read_csv(f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv")
 
-# Load your dataset to extract unique 'state' and 'gender'
-file_path = 'ADLprediction.csv'  # Adjust the path if necessary
-data = pd.read_csv(file_path)
+print(df.head())
 
-# Extract unique 'state' options
-state_options = sorted(data['state'].unique())
+print(f'Data Shape: {df.shape}')
 
-# Title of the Dashboard
-st.title('Real-Time ADL Prediction Dashboard for Elderly Individuals')
+# Example: Convert categorical columns to numeric using LabelEncoder
+categorical_columns = ['state', 'district', 'gender', 'name', 'target']
+for column in categorical_columns:
+    df[column] = LabelEncoder().fit_transform(df[column])
 
-# Sidebar for User Input
-st.sidebar.header('Input Features')
+# Assuming your target variable is 'state' and using all other columns as features
+X = df.drop(columns=['state'])  # Features
+y = df['state']                 # Target variable
 
-# Function to accept user input
-def user_input_features():
-    # Select state
-    state = st.sidebar.selectbox('State', state_options)
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Filter dataset based on the selected state to get unique gender options
-    gender_options = sorted(data[data['state'] == state]['gender'].unique())
+# Create a Random Forest Classifier
+rf_classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+
+# Fit the model
+rf_classifier.fit(X_train, y_train)
+
+# Make predictions
+y_pred = rf_classifier.predict(X_test)
+
+# Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+print(f'Accuracy: {accuracy:.2f}')
+
+import streamlit as st
+
+# Streamlit app
+st.title('Random Forest Classifier Prediction')
+
+# Create input fields for user input based on the features
+input_data = []
+for column in X.columns:
+    input_value = st.text_input(f'Enter value for {column}')
+    input_data.append(float(input_value))
+
+# If the user clicks the 'Predict' button
+if st.button('Predict'):
+    # Convert input data to DataFrame
+    input_df = pd.DataFrame([input_data], columns=X.columns)
     
-    # Select gender based on filtered options
-    gender = st.sidebar.selectbox('Gender', gender_options)
-
-    # Create an empty DataFrame with all feature names set to 0
-    input_df = pd.DataFrame(0, index=[0], columns=feature_names)
-
-    # One-hot encode the input features
-    input_data = {'state_' + state: 1, 'gender_' + gender: 1}
+    # Make predictions
+    prediction = rf_classifier.predict(input_df)
     
-    # Update the DataFrame with user input
-    for key in input_data.keys():
-        if key in input_df.columns:
-            input_df.at[0, key] = input_data[key]
+    # Display the prediction
+    st.write(f'Prediction: {prediction[0]}')
 
-    # Ensure all columns expected by the model are present
-    input_df = input_df.reindex(columns=feature_names, fill_value=0)
-
-    # Check for missing or unexpected values
-    input_df = input_df.fillna(0)
-
-    return input_df, state
-
-# Get user input DataFrame and the selected state
-input_df, selected_state = user_input_features()
-
-# Calculate the total record count and the record count for the selected state
-total_record_count = len(data)
-state_record_count = len(data[data['state'] == selected_state])
-
-# Display the record counts side-by-side
-st.subheader('Record Counts')
-col_total, col_selected = st.columns(2)
-
-with col_total:
-    st.metric(label="Total Records", value=f"{total_record_count} records")
-
-with col_selected:
-    st.metric(label="Records for Selected State", value=f"{state_record_count} records")
-
-# Predict with the model whenever user input changes
-try:
-    prediction = model.predict(input_df)
-    prediction_proba = model.predict_proba(input_df)
-except Exception as e:
-    st.error(f"An error occurred during prediction: {e}")
-    st.stop()
-
-# Prepare data for display
-activities = ['Eating', 'Bathing', 'Dressing', 'Toileting', 'Mobility']
-needs_assistance = [prediction_proba[i][0][1] * 100 for i in range(len(activities))]
-
-# Identify the highest and lowest probability
-highest_index = needs_assistance.index(max(needs_assistance))
-lowest_index = needs_assistance.index(min(needs_assistance))
-
-# Display scorecards for highest and lowest probabilities
-st.subheader('Summary of Assistance Needs')
-col_high, col_low = st.columns(2)
-
-with col_high:
-    st.metric(label=f"Highest Needs Assistance: {activities[highest_index]}",
-              value=f"{round(needs_assistance[highest_index], 2)}%",
-              delta="High")
-
-with col_low:
-    st.metric(label=f"Lowest Needs Assistance: {activities[lowest_index]}",
-              value=f"{round(needs_assistance[lowest_index], 2)}%",
-              delta="Low")
-
-# Display circular gauges above the bar chart
-st.subheader('Probability of Needs Assistance for Each Activity')
-gauge_cols = st.columns(len(activities))
-
-for i, activity in enumerate(activities):
-    # Create circular gauge using Plotly
-    gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=needs_assistance[i],
-        number={'suffix': "%"},
-        gauge={
-            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkgray"},
-            'bar': {'color': "orange"},
-            'bgcolor': "white",
-            'borderwidth': 2,
-            'bordercolor': "gray",
-            'steps': [
-                {'range': [0, 50], 'color': 'lightgray'},
-                {'range': [50, 100], 'color': 'lightgreen'}
-            ],
-            'threshold': {
-                'line': {'color': "red", 'width': 4},
-                'thickness': 0.75,
-                'value': needs_assistance[i]
-            }
-        },
-        title={'text': activity}
-    ))
-
-    with gauge_cols[i]:
-        st.plotly_chart(gauge, use_container_width=True)
-
-# Display the bar chart below the gauges
-fig, ax = plt.subplots(figsize=(8, 4))  # Adjust the figure size to fit the screen better
-ax.barh(activities, needs_assistance, color='skyblue')
-ax.set_xlabel('Probability of Needs Assistance (%)')
-ax.set_title('Probability of Needs Assistance')
-st.pyplot(fig)
+# Run the app
+if __name__ == '__main__':
+    st.run()
